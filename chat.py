@@ -92,48 +92,86 @@ with st.container():
 
 st.divider()
 
-# --- 6. 留言牆 (瀑布流) ---
-st.subheader("📢 最新留言")
+# --- 6. 留言牆 (雲朵瀑布流版) ---
+st.subheader("☁️ 心情天空")
+
+# 自訂 CSS：讓卡片變成圓角雲朵狀，並加上輕微浮動動畫
+st.markdown("""
+<style>
+    div[data-testid="stVerticalBlock"] > div[style*="flex-direction: column;"] > div[data-testid="stVerticalBlock"] {
+        gap: 1rem;
+    }
+    .cloud-card {
+        background-color: #f0f2f6;
+        border-radius: 20px;
+        padding: 15px;
+        margin-bottom: 15px;
+        box-shadow: 2px 2px 5px rgba(0,0,0,0.05);
+        transition: transform 0.2s;
+        border: 2px solid white;
+    }
+    .cloud-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 4px 4px 10px rgba(0,0,0,0.1);
+    }
+    .cloud-meta {
+        font-size: 0.8em;
+        color: #888;
+        margin-bottom: 5px;
+    }
+    .cloud-content {
+        font-size: 1em;
+        line-height: 1.5;
+        color: #31333F;
+        white-space: pre-wrap; /* 保留換行 */
+    }
+</style>
+""", unsafe_allow_html=True)
 
 if not df.empty and "狀態" in df.columns:
     try:
-        # 確保檢舉數是數字
+        # 1. 資料處理
         df["檢舉數"] = pd.to_numeric(df["檢舉數"], errors='coerce').fillna(0)
-        
-        # 篩選：只顯示狀態正常，且檢舉數 < 5
         valid_df = df[(df['狀態'] == '正常') & (df['檢舉數'] < 5)]
-        
-        # 排序：新的在上面
         sorted_df = valid_df.sort_values(by="時間", ascending=False)
         
         if sorted_df.empty:
-            st.info("目前沒有留言，或是都被隱藏了。")
-        
-        for index, row in sorted_df.iterrows():
-            with st.container():
-                st.markdown(f"""
-                <div style="padding:15px; border-radius:10px; background-color:#262730; margin-bottom:10px;">
-                    <small style="color:grey;">{row['時間']} · {row['暱稱']}</small><br>
-                    <div style="font-size:16px; margin-top:5px; white-space: pre-wrap;">{row['內容']}</div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                # 檢舉功能
-                if st.button(f"🚩 檢舉", key=f"report_{row['ID']}"):
-                    # 計算正確的行數 (Row 1是標題，DataFrame index 從 0 開始)
-                    # 我們假設 ID 對應 Row+1 (ID 1 = Row 2)
-                    target_row = int(row['ID']) + 1
+            st.info("天空中還沒有雲朵，快來發送第一朵吧！")
+        else:
+            # 2. 建立雙欄位 (這就是瀑布流的關鍵！)
+            col1, col2 = st.columns(2)
+            cols = [col1, col2] # 把兩個欄位放進清單方便輪流使用
+            
+            # 3. 迴圈顯示
+            for i, (index, row) in enumerate(sorted_df.iterrows()):
+                # i % 2 會決定是 0 (左欄) 還是 1 (右欄)
+                with cols[i % 2]:
+                    # 使用 HTML 畫出雲朵氣泡
+                    st.markdown(f"""
+                    <div class="cloud-card">
+                        <div class="cloud-meta">
+                            {row['暱稱']}<br>
+                            <span style="font-size:0.8em">{row['時間'][5:-3]}</span>
+                        </div>
+                        <div class="cloud-content">{row['內容']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
                     
-                    current_reports = int(row['檢舉數']) + 1
-                    sheet.update_cell(target_row, 6, current_reports) # 更新第6欄
-                    
-                    if current_reports >= 5:
-                        sheet.update_cell(target_row, 7, "屏蔽") # 更新第7欄
-                    
-                    st.toast("收到檢舉，感謝協助維護環境！", icon="👮‍♂️")
-                    st.rerun()
-                    
+                    # 檢舉按鈕 (保持 Streamlit 原生按鈕功能)
+                    # 為了美觀，我們把按鈕設為小一點，並靠右
+                    if st.button(f"🚩", key=f"report_{row['ID']}", help="檢舉這則留言"):
+                        # 邏輯：ID 對應 Row+1
+                        target_row = int(row['ID']) + 1
+                        current_reports = int(row['檢舉數']) + 1
+                        sheet.update_cell(target_row, 6, current_reports)
+                        
+                        if current_reports >= 5:
+                            sheet.update_cell(target_row, 7, "屏蔽")
+                        
+                        st.toast("已收到檢舉，雲朵即將消散...", icon="🌫️")
+                        st.rerun()
+
     except Exception as e:
-        st.error(f"讀取留言時發生錯誤：{e}")
+        st.error(f"讀取錯誤：{e}")
 else:
     st.info("這裡還是一片荒蕪，快來搶頭香！")
