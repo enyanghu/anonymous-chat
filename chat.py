@@ -11,7 +11,6 @@ st.set_page_config(page_title="秘密樹洞", page_icon="🍃", layout="centered
 # CSS: 雲朵動畫 + 強制懸浮按鈕
 st.markdown("""
 <style>
-    /* 雲朵卡片樣式 */
     .cloud-card {
         background-color: #f0f2f6;
         border-radius: 20px;
@@ -30,11 +29,9 @@ st.markdown("""
     .cloud-card:nth-child(even) { animation-duration: 7s; }
     .cloud-meta { font-size: 0.8em; color: #888; margin-bottom: 5px; }
     .cloud-content { font-size: 1em; line-height: 1.5; color: #31333F; white-space: pre-wrap; }
-    
-    /* 底部留白 */
     .block-container { padding-bottom: 100px; }
 
-    /* ========== 懸浮按鈕 (右下角藍點點) ========== */
+    /* 懸浮按鈕樣式 */
     button[kind="primary"] {
         position: fixed !important;
         bottom: 30px !important;
@@ -73,14 +70,12 @@ nouns = ["水豚", "珍珠奶茶", "小籠包", "工程師", "貓頭鷹", "柴�
 if 'anon_name' not in st.session_state:
     st.session_state.anon_name = f"{random.choice(adjs)}{random.choice(nouns)}"
 
-# --- 3. 連線設定 (優化版) ---
+# --- 3. 連線設定 ---
 def get_connection():
     try:
-        # 👇 我把這邊拆短了，避免手機複製時斷行
         conn = st.secrets["connections"]["gsheets"]
         info = conn["service_account_info"]
         url = conn["spreadsheet"]
-        
         creds = service_account.Credentials.from_service_account_info(
             info, scopes=["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
         )
@@ -131,13 +126,46 @@ def entry_dialog():
 # ==========================================
 st.subheader("☁️ 心情天空")
 
+# 這裡我移除了 try...except 區塊，減少縮排層級，避免複製錯誤
 if not df.empty and "狀態" in df.columns:
-    try:
-        df["檢舉數"] = pd.to_numeric(df["檢舉數"], errors='coerce').fillna(0)
-        valid_df = df[(df['狀態'] == '正常') & (df['檢舉數'] < 5)]
-        sorted_df = valid_df.sort_values(by="時間", ascending=False)
+    df["檢舉數"] = pd.to_numeric(df["檢舉數"], errors='coerce').fillna(0)
+    valid_df = df[(df['狀態'] == '正常') & (df['檢舉數'] < 5)]
+    sorted_df = valid_df.sort_values(by="時間", ascending=False)
+    
+    if sorted_df.empty:
+        st.info("天空中還沒有雲朵...")
+    else:
+        col1, col2 = st.columns(2)
+        cols = [col1, col2]
         
-        if sorted_df.empty:
-            st.info("天空中還沒有雲朵...")
-        else:
-            col1, col2 = st.columns(2)
+        for i, (index, row) in enumerate(sorted_df.iterrows()):
+            with cols[i % 2]:
+                nickname = row['暱稱']
+                time_str = str(row['時間'])[5:-3]
+                content = row['內容']
+                
+                # HTML 結構
+                html_code = f"""
+                <div class="cloud-card">
+                    <div class="cloud-meta">{nickname}<br><span style="font-size:0.8em">{time_str}</span></div>
+                    <div class="cloud-content">{content}</div>
+                </div>
+                """
+                st.markdown(html_code, unsafe_allow_html=True)
+                
+                if st.button(f"🚩", key=f"report_{row['ID']}", help="檢舉"):
+                    target_row = int(row['ID']) + 1
+                    current_reports = int(row['檢舉數']) + 1
+                    sheet.update_cell(target_row, 6, current_reports)
+                    if current_reports >= 5:
+                        sheet.update_cell(target_row, 7, "屏蔽")
+                    st.toast("已收到檢舉", icon="🌫️")
+                    st.rerun()
+else:
+    st.info("這裡還是一片荒蕪...")
+
+# ==========================================
+# PART 3: 觸發按鈕
+# ==========================================
+if st.button("➕", type="primary"):
+    entry_dialog()
