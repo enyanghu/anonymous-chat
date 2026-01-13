@@ -189,4 +189,4 @@ st.write("")
 st.subheader("🌱 種下一顆種子")
 st.caption(f"你現在的身分：**{st.session_state.anon_name}**")
 
-with st.form("msg_form", clear_on_
+with st.form("msg_form", clear_on_submit=True):
