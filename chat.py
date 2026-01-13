@@ -73,7 +73,71 @@ nouns = ["水豚", "珍珠奶茶", "小籠包", "工程師", "貓頭鷹", "柴�
 if 'anon_name' not in st.session_state:
     st.session_state.anon_name = f"{random.choice(adjs)}{random.choice(nouns)}"
 
-# --- 3. 連線設定 ---
+# --- 3. 連線設定 (優化版) ---
 def get_connection():
     try:
-        info = st.secrets["connections"]["gsheets
+        # 👇 我把這邊拆短了，避免手機複製時斷行
+        conn = st.secrets["connections"]["gsheets"]
+        info = conn["service_account_info"]
+        url = conn["spreadsheet"]
+        
+        creds = service_account.Credentials.from_service_account_info(
+            info, scopes=["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+        )
+        client = gspread.authorize(creds)
+        return client.open_by_url(url).sheet1
+    except Exception as e:
+        st.error(f"連線失敗: {e}")
+        st.stop()
+
+def get_ip():
+    try:
+        from streamlit.web.server.websocket_headers import _get_websocket_headers
+        return _get_websocket_headers().get("X-Forwarded-For", "Unknown IP")
+    except:
+        return "Hidden IP"
+
+sheet = get_connection()
+try:
+    data = sheet.get_all_records()
+    df = pd.DataFrame(data if data else [], columns=["ID", "時間", "暱稱", "內容", "IP", "檢舉數", "狀態"])
+except:
+    df = pd.DataFrame()
+
+# ==========================================
+# PART 1: 定義彈出視窗
+# ==========================================
+@st.dialog("🌱 種下一顆種子")
+def entry_dialog():
+    st.write(f"你的身分：**{st.session_state.anon_name}**")
+    
+    with st.form("popup_form", clear_on_submit=True):
+        user_msg = st.text_area("寫下你想說的話...", height=150, max_chars=300)
+        submitted = st.form_submit_button("🚀 發送雲朵", use_container_width=True)
+    
+    if submitted and user_msg.strip():
+        try:
+            tw_time = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
+            new_id = len(df) + 1
+            new_row = [new_id, tw_time, st.session_state.anon_name, user_msg, get_ip(), 0, "正常"]
+            sheet.append_row(new_row)
+            st.toast("雲朵飄上去了！", icon="☁️")
+            st.rerun()
+        except Exception as e:
+            st.error(f"發送失敗：{e}")
+
+# ==========================================
+# PART 2: 天空區 (顯示留言)
+# ==========================================
+st.subheader("☁️ 心情天空")
+
+if not df.empty and "狀態" in df.columns:
+    try:
+        df["檢舉數"] = pd.to_numeric(df["檢舉數"], errors='coerce').fillna(0)
+        valid_df = df[(df['狀態'] == '正常') & (df['檢舉數'] < 5)]
+        sorted_df = valid_df.sort_values(by="時間", ascending=False)
+        
+        if sorted_df.empty:
+            st.info("天空中還沒有雲朵...")
+        else:
+            col1, col2 = st.columns(2)
