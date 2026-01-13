@@ -35,7 +35,6 @@ st.markdown("""
     .block-container { padding-bottom: 100px; }
 
     /* ========== 懸浮按鈕 (右下角藍點點) - 強制樣式 ========== */
-    /* 瞄準 Primary 按鈕 */
     button[kind="primary"] {
         position: fixed !important;
         bottom: 30px !important;
@@ -46,7 +45,7 @@ st.markdown("""
         background-color: #FF4B4B !important;
         color: white !important;
         border: none !important;
-        z-index: 999999 !important; /* 超級置頂，確保不被擋住 */
+        z-index: 999999 !important;
         box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
         display: flex !important;
         justify-content: center !important;
@@ -57,7 +56,6 @@ st.markdown("""
         transform: scale(1.1) !important;
         background-color: #FF2B2B !important;
     }
-    /* 隱藏按鈕內的文字容器邊距，確保圖示置中 */
     button[kind="primary"] > div {
         margin: 0 !important;
         padding: 0 !important;
@@ -104,50 +102,13 @@ except:
     df = pd.DataFrame()
 
 # ==========================================
-# PART 1: 定義彈出視窗 (輸入與存檔邏輯都在這)
+# PART 1: 定義彈出視窗
 # ==========================================
 @st.dialog("🌱 種下一顆種子")
 def entry_dialog():
     st.write(f"你的身分：**{st.session_state.anon_name}**")
     
-    with st.form("popup_form", clear_on_submit=True):
-        user_msg = st.text_area("寫下你想說的話...", height=150, max_chars=300)
-        # 注意：這裡用 secondary 按鈕，才不會變成圓形
-        submitted = st.form_submit_button("🚀 發送雲朵", use_container_width=True)
-    
-    # --- 關鍵修正：存檔邏輯必須放在這裡面 ---
-    if submitted and user_msg.strip():
-        try:
-            tw_time = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
-            new_id = len(df) + 1
-            new_row = [new_id, tw_time, st.session_state.anon_name, user_msg, get_ip(), 0, "正常"]
-            sheet.append_row(new_row)
-            st.toast("雲朵飄上去了！", icon="☁️")
-            st.rerun()
-        except Exception as e:
-            st.error(f"發送失敗：{e}")
-
-# ==========================================
-# PART 2: 天空區 (顯示留言)
-# ==========================================
-st.subheader("☁️ 心情天空")
-
-if not df.empty and "狀態" in df.columns:
-    try:
-        df["檢舉數"] = pd.to_numeric(df["檢舉數"], errors='coerce').fillna(0)
-        valid_df = df[(df['狀態'] == '正常') & (df['檢舉數'] < 5)]
-        sorted_df = valid_df.sort_values(by="時間", ascending=False)
-        
-        if sorted_df.empty:
-            st.info("天空中還沒有雲朵...")
-        else:
-            col1, col2 = st.columns(2)
-            cols = [col1, col2]
-            
-            for i, (index, row) in enumerate(sorted_df.iterrows()):
-                with cols[i % 2]:
-                    st.markdown(f"""
-                    <div class="cloud-card">
+    with st.form("popup_form", clear_on_submit
                         <div class="cloud-meta">
                             {row['暱稱']}<br>
                             <span style="font-size:0.8em">{str(row['時間'])[5:-3]}</span>
