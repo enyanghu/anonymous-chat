@@ -62,4 +62,4 @@ with st.container():
     
     with st.form("msg_form", clear_on_submit=True):
         user_msg = st.text_area("寫下你想說的話...", height=100, max_chars=300)
-        submitted = st.form_submit_button("🚀 發布留言
+        submitted = st.form_submit_button("🚀 發布留言", use_container_width=True)
