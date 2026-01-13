@@ -190,3 +190,25 @@ st.subheader("🌱 種下一顆種子")
 st.caption(f"你現在的身分：**{st.session_state.anon_name}**")
 
 with st.form("msg_form", clear_on_submit=True):
+    # 👇 注意：這兩行前面要有空格 (縮排)
+    user_msg = st.text_area("寫下你想說的話...", height=120, max_chars=300)
+    submitted = st.form_submit_button("🚀 發送雲朵", use_container_width=True)
+
+if submitted and user_msg.strip():
+    try:
+        tw_time = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
+        new_id = len(df) + 1
+        new_row = [
+            new_id,
+            tw_time,
+            st.session_state.anon_name,
+            user_msg,
+            get_ip(),
+            0,
+            "正常"
+        ]
+        sheet.append_row(new_row)
+        st.success("雲朵飄上去了！")
+        st.rerun() 
+    except Exception as e:
+        st.error(f"發送失敗：{e}")
