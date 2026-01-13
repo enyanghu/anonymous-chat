@@ -156,4 +156,37 @@ st.write("")
 st.subheader("🌱 種下一顆種子")
 st.caption(f"你現在的身分：**{st.session_state.anon_name}**")
 
+with st.form("msg_form", clear_on_submit=True):
+    # 手機上輸入框高一點比較好打字
+    user_msg = st.text_area("寫下你想說的話...", height=120, max_chars=300)
+    
+    # 送出按鈕
+    submitted = st.form_submit_button("🚀 發送雲朵", use_container_width=True)
+
+if submitted and user_msg.strip():
+    try:
+        tw_time = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
+        new_id = len(df) + 1
+        new_row = [
+            new_id,
+            tw_time,
+            st.session_state.anon_name,
+            user_msg,
+            get_ip(),
+            0,
+            "正常"
+        ]
+        sheet.append_row(new_row)
+        st.success("雲朵飄上去了！")
+        st.rerun() # 重新整理，讓使用者馬上看到自己的雲朵出現在上面
+    except Exception as e:
+        st.error(f"發送失敗：{e}")
+st.write("") 
+
+# ==========================================
+# PART 2: 地面區 (輸入框) - 後顯示！
+# ==========================================
+st.subheader("🌱 種下一顆種子")
+st.caption(f"你現在的身分：**{st.session_state.anon_name}**")
+
 with st.form("msg_form", clear_on_
