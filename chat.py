@@ -31,10 +31,10 @@ st.markdown("""
     .cloud-meta { font-size: 0.8em; color: #888; margin-bottom: 5px; }
     .cloud-content { font-size: 1em; line-height: 1.5; color: #31333F; white-space: pre-wrap; }
     
-    /* 底部留白，避免最後的雲朵被按鈕擋住 */
+    /* 底部留白 */
     .block-container { padding-bottom: 100px; }
 
-    /* ========== 懸浮按鈕 (右下角藍點點) - 強制樣式 ========== */
+    /* ========== 懸浮按鈕 (右下角藍點點) ========== */
     button[kind="primary"] {
         position: fixed !important;
         bottom: 30px !important;
@@ -76,136 +76,4 @@ if 'anon_name' not in st.session_state:
 # --- 3. 連線設定 ---
 def get_connection():
     try:
-        info = st.secrets["connections"]["gsheets"]["service_account_info"]
-        url = st.secrets["connections"]["gsheets"]["spreadsheet"]
-        creds = service_account.Credentials.from_service_account_info(
-            info, scopes=["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-        )
-        client = gspread.authorize(creds)
-        return client.open_by_url(url).sheet1
-    except Exception as e:
-        st.error(f"連線失敗: {e}")
-        st.stop()
-
-def get_ip():
-    try:
-        from streamlit.web.server.websocket_headers import _get_websocket_headers
-        return _get_websocket_headers().get("X-Forwarded-For", "Unknown IP")
-    except:
-        return "Hidden IP"
-
-sheet = get_connection()
-try:
-    data = sheet.get_all_records()
-    df = pd.DataFrame(data if data else [], columns=["ID", "時間", "暱稱", "內容", "IP", "檢舉數", "狀態"])
-except:
-    df = pd.DataFrame()
-
-# ==========================================
-# PART 1: 定義彈出視窗
-# ==========================================
-@st.dialog("🌱 種下一顆種子")
-def entry_dialog():
-    st.write(f"你的身分：**{st.session_state.anon_name}**")
-    
-    with st.form("popup_form", clear_on_submit
-                        <div class="cloud-meta">
-                            {row['暱稱']}<br>
-                            <span style="font-size:0.8em">{str(row['時間'])[5:-3]}</span>
-                        </div>
-                        <div class="cloud-content">{row['內容']}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    if st.button(f"🚩", key=f"report_{row['ID']}", help="檢舉"):
-                        target_row = int(row['ID']) + 1
-                        current_reports = int(row['檢舉數']) + 1
-                        sheet.update_cell(target_row, 6, current_reports)
-                        if current_reports >= 5:
-                            sheet.update_cell(target_row, 7, "屏蔽")
-                        st.toast("已收到檢舉", icon="🌫️")
-                        st.rerun()
-    except Exception as e:
-        st.error(f"天空有點陰暗: {e}")
-else:
-    st.info("這裡還是一片荒蕪...")
-
-# ==========================================
-# PART 3: 觸發按鈕 (右下角圓點)
-# ==========================================
-# 這行必須放在最下面，確保它浮在最上層
-if st.button("➕", type="primary"):
-    entry_dialog()
-                            <span style="font-size:0.8em">{str(row['時間'])[5:-3]}</span>
-                        </div>
-                        <div class="cloud-content">{row['內容']}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    # 檢舉按鈕
-                    if st.button(f"🚩", key=f"report_{row['ID']}", help="檢舉"):
-                        target_row = int(row['ID']) + 1
-                        current_reports = int(row['檢舉數']) + 1
-                        sheet.update_cell(target_row, 6, current_reports)
-                        if current_reports >= 5:
-                            sheet.update_cell(target_row, 7, "屏蔽")
-                        st.toast("已收到檢舉", icon="🌫️")
-                        st.rerun()
-    except Exception as e:
-        st.error(f"天空有點陰暗: {e}")
-else:
-    st.info("這裡還是一片荒蕪...")
-
-# =================
-    # 送出按鈕
-    submitted = st.form_submit_button("🚀 發送雲朵", use_container_width=True)
-
-if submitted and user_msg.strip():
-    try:
-        tw_time = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
-        new_id = len(df) + 1
-        new_row = [
-            new_id,
-            tw_time,
-            st.session_state.anon_name,
-            user_msg,
-            get_ip(),
-            0,
-            "正常"
-        ]
-        sheet.append_row(new_row)
-        st.success("雲朵飄上去了！")
-        st.rerun() # 重新整理，讓使用者馬上看到自己的雲朵出現在上面
-    except Exception as e:
-        st.error(f"發送失敗：{e}")
-st.write("") 
-
-# ==========================================
-# PART 2: 地面區 (輸入框) - 後顯示！
-# ==========================================
-st.subheader("🌱 種下一顆種子")
-st.caption(f"你現在的身分：**{st.session_state.anon_name}**")
-
-with st.form("msg_form", clear_on_submit=True):
-    # 👇 注意：這兩行前面要有空格 (縮排)
-    user_msg = st.text_area("寫下你想說的話...", height=120, max_chars=300)
-    submitted = st.form_submit_button("🚀 發送雲朵", use_container_width=True)
-
-if submitted and user_msg.strip():
-    try:
-        tw_time = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
-        new_id = len(df) + 1
-        new_row = [
-            new_id,
-            tw_time,
-            st.session_state.anon_name,
-            user_msg,
-            get_ip(),
-            0,
-            "正常"
-        ]
-        sheet.append_row(new_row)
-        st.success("雲朵飄上去了！")
-        st.rerun() 
-    except Exception as e:
-        st.error(f"發送失敗：{e}")
+        info = st.secrets["connections"]["gsheets
