@@ -8,9 +8,10 @@ from google.oauth2 import service_account
 # --- 1. 頁面設定 ---
 st.set_page_config(page_title="秘密樹洞", page_icon="🍃", layout="centered")
 
-# CSS: 雲朵動畫 + 樣式
+# CSS: 雲朵動畫 + 懸浮按鈕 (FAB)
 st.markdown("""
 <style>
+    /* 雲朵卡片樣式 */
     .cloud-card {
         background-color: #f0f2f6;
         border-radius: 20px;
@@ -29,12 +30,42 @@ st.markdown("""
     .cloud-card:nth-child(even) { animation-duration: 7s; }
     .cloud-meta { font-size: 0.8em; color: #888; margin-bottom: 5px; }
     .cloud-content { font-size: 1em; line-height: 1.5; color: #31333F; white-space: pre-wrap; }
-    .block-container { padding-top: 2rem; }
+    .block-container { padding-top: 2rem; padding-bottom: 5rem; }
+
+    /* ========== 懸浮按鈕 (右下角藍點點) ========== */
+    /* 針對 Primary 類型的按鈕進行變身 */
+    div.stButton > button[kind="primary"] {
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        width: 3.8rem;
+        height: 3.8rem;
+        border-radius: 50%;
+        font-size: 2rem;
+        z-index: 9999;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        display: flex;
+        justify_content: center;
+        align_items: center;
+        padding: 0;
+        background-color: #FF4B4B; /* 你可以改成喜歡的顏色 */
+        color: white;
+        border: none;
+    }
+    div.stButton > button[kind="primary"]:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 14px rgba(0,0,0,0.4);
+    }
+    /* 讓按鈕裡的圖示置中 */
+    div.stButton > button[kind="primary"] > div {
+        display: flex;
+        align-items: center;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 st.title("🍃 秘密樹洞")
-st.caption("抬頭看看天空的心情，或者種下你自己的一朵雲。")
+st.caption("抬頭看看天空的心情，或者點擊右下角種下自己的一朵雲。")
 
 # --- 2. 隨機暱稱 ---
 adjs = ["神祕的", "優雅的", "憤怒的", "閃耀的", "傲嬌的", "憂鬱的", "佛系的", "吃飽的", "剛睡醒的", "迷路的"]
@@ -72,7 +103,30 @@ except:
     df = pd.DataFrame()
 
 # ==========================================
-# PART 1: 天空區 (顯示留言)
+# PART 1: 彈出視窗 (輸入區) - 隱藏在按鈕裡
+# ==========================================
+@st.dialog("🌱 種下一顆種子")
+def entry_dialog():
+    st.caption(f"你的神祕身分：**{st.session_state.anon_name}**")
+    
+    with st.form("popup_form", clear_on_submit=True):
+        user_msg = st.text_area("寫下你想說的話...", height=150, max_chars=300)
+        # 這裡用一般的 secondary 按鈕，避免變成圓形
+        submitted = st.form_submit_button("🚀 發送雲朵", use_container_width=True)
+    
+    if submitted and user_msg.strip():
+        try:
+            tw_time = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
+            new_id = len(df) + 1
+            new_row = [new_id, tw_time, st.session_state.anon_name, user_msg, get_ip(), 0, "正常"]
+            sheet.append_row(new_row)
+            st.toast("雲朵飄上去了！", icon="☁️")
+            st.rerun()
+        except Exception as e:
+            st.error(f"發送失敗：{e}")
+
+# ==========================================
+# PART 2: 天空區 (顯示留言)
 # ==========================================
 st.subheader("☁️ 心情天空")
 
@@ -100,6 +154,7 @@ if not df.empty and "狀態" in df.columns:
                     </div>
                     """, unsafe_allow_html=True)
                     
+                    # 檢舉按鈕
                     if st.button(f"🚩", key=f"report_{row['ID']}", help="檢舉"):
                         target_row = int(row['ID']) + 1
                         current_reports = int(row['檢舉數']) + 1
@@ -113,41 +168,7 @@ if not df.empty and "狀態" in df.columns:
 else:
     st.info("這裡還是一片荒蕪...")
 
-st.write(""); st.write(""); st.divider(); st.write("") 
-
-# ==========================================
-# PART 2: 地面區 (輸入框)
-# ==========================================
-st.subheader("🌱 種下一顆種子")
-st.caption(f"你現在的身分：**{st.session_state.anon_name}**")
-
-# 這裡就是修正過縮排與名稱的地方
-with st.form("new_msg_form", clear_on_submit=True):
-    user_msg = st.text_area("寫下你想說的話...", height=120, max_chars=300)
-    submitted = st.form_submit_button("🚀 發送雲朵", use_container_width=True)
-
-if submitted and user_msg.strip():
-    try:
-        tw_time = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
-        new_id = len(df) + 1
-        new_row = [new_id, tw_time, st.session_state.anon_name, user_msg, get_ip(), 0, "正常"]
-        sheet.append_row(new_row)
-        st.success("雲朵飄上去了！")
-        st.rerun()
-    except Exception as e:
-        st.error(f"發送失敗：{e}")
-st.write("") 
-
-# ==========================================
-# PART 2: 地面區 (輸入框) - 後顯示！
-# ==========================================
-st.subheader("🌱 種下一顆種子")
-st.caption(f"你現在的身分：**{st.session_state.anon_name}**")
-
-with st.form("msg_form", clear_on_submit=True):
-    # 手機上輸入框高一點比較好打字
-    user_msg = st.text_area("寫下你想說的話...", height=120, max_chars=300)
-    
+# =================
     # 送出按鈕
     submitted = st.form_submit_button("🚀 發送雲朵", use_container_width=True)
 
