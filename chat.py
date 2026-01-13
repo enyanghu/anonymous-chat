@@ -8,7 +8,7 @@ from google.oauth2 import service_account
 # --- 1. 頁面設定 ---
 st.set_page_config(page_title="秘密樹洞", page_icon="🍃", layout="centered")
 
-# CSS: 雲朵動畫 + 懸浮按鈕 (FAB)
+# CSS: 雲朵動畫 + 強制懸浮按鈕
 st.markdown("""
 <style>
     /* 雲朵卡片樣式 */
@@ -30,36 +30,37 @@ st.markdown("""
     .cloud-card:nth-child(even) { animation-duration: 7s; }
     .cloud-meta { font-size: 0.8em; color: #888; margin-bottom: 5px; }
     .cloud-content { font-size: 1em; line-height: 1.5; color: #31333F; white-space: pre-wrap; }
-    .block-container { padding-top: 2rem; padding-bottom: 5rem; }
+    
+    /* 底部留白，避免最後的雲朵被按鈕擋住 */
+    .block-container { padding-bottom: 100px; }
 
-    /* ========== 懸浮按鈕 (右下角藍點點) ========== */
-    /* 針對 Primary 類型的按鈕進行變身 */
-    div.stButton > button[kind="primary"] {
-        position: fixed;
-        bottom: 2rem;
-        right: 2rem;
-        width: 3.8rem;
-        height: 3.8rem;
-        border-radius: 50%;
-        font-size: 2rem;
-        z-index: 9999;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-        display: flex;
-        justify_content: center;
-        align_items: center;
-        padding: 0;
-        background-color: #FF4B4B; /* 你可以改成喜歡的顏色 */
-        color: white;
-        border: none;
+    /* ========== 懸浮按鈕 (右下角藍點點) - 強制樣式 ========== */
+    /* 瞄準 Primary 按鈕 */
+    button[kind="primary"] {
+        position: fixed !important;
+        bottom: 30px !important;
+        right: 30px !important;
+        width: 60px !important;
+        height: 60px !important;
+        border-radius: 50% !important;
+        background-color: #FF4B4B !important;
+        color: white !important;
+        border: none !important;
+        z-index: 999999 !important; /* 超級置頂，確保不被擋住 */
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3) !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        font-size: 24px !important;
     }
-    div.stButton > button[kind="primary"]:hover {
-        transform: scale(1.1);
-        box-shadow: 0 6px 14px rgba(0,0,0,0.4);
+    button[kind="primary"]:hover {
+        transform: scale(1.1) !important;
+        background-color: #FF2B2B !important;
     }
-    /* 讓按鈕裡的圖示置中 */
-    div.stButton > button[kind="primary"] > div {
-        display: flex;
-        align-items: center;
+    /* 隱藏按鈕內的文字容器邊距，確保圖示置中 */
+    button[kind="primary"] > div {
+        margin: 0 !important;
+        padding: 0 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -103,17 +104,18 @@ except:
     df = pd.DataFrame()
 
 # ==========================================
-# PART 1: 彈出視窗 (輸入區) - 隱藏在按鈕裡
+# PART 1: 定義彈出視窗 (輸入與存檔邏輯都在這)
 # ==========================================
 @st.dialog("🌱 種下一顆種子")
 def entry_dialog():
-    st.caption(f"你的神祕身分：**{st.session_state.anon_name}**")
+    st.write(f"你的身分：**{st.session_state.anon_name}**")
     
     with st.form("popup_form", clear_on_submit=True):
         user_msg = st.text_area("寫下你想說的話...", height=150, max_chars=300)
-        # 這裡用一般的 secondary 按鈕，避免變成圓形
+        # 注意：這裡用 secondary 按鈕，才不會變成圓形
         submitted = st.form_submit_button("🚀 發送雲朵", use_container_width=True)
     
+    # --- 關鍵修正：存檔邏輯必須放在這裡面 ---
     if submitted and user_msg.strip():
         try:
             tw_time = (datetime.utcnow() + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
@@ -148,6 +150,31 @@ if not df.empty and "狀態" in df.columns:
                     <div class="cloud-card">
                         <div class="cloud-meta">
                             {row['暱稱']}<br>
+                            <span style="font-size:0.8em">{str(row['時間'])[5:-3]}</span>
+                        </div>
+                        <div class="cloud-content">{row['內容']}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    if st.button(f"🚩", key=f"report_{row['ID']}", help="檢舉"):
+                        target_row = int(row['ID']) + 1
+                        current_reports = int(row['檢舉數']) + 1
+                        sheet.update_cell(target_row, 6, current_reports)
+                        if current_reports >= 5:
+                            sheet.update_cell(target_row, 7, "屏蔽")
+                        st.toast("已收到檢舉", icon="🌫️")
+                        st.rerun()
+    except Exception as e:
+        st.error(f"天空有點陰暗: {e}")
+else:
+    st.info("這裡還是一片荒蕪...")
+
+# ==========================================
+# PART 3: 觸發按鈕 (右下角圓點)
+# ==========================================
+# 這行必須放在最下面，確保它浮在最上層
+if st.button("➕", type="primary"):
+    entry_dialog()
                             <span style="font-size:0.8em">{str(row['時間'])[5:-3]}</span>
                         </div>
                         <div class="cloud-content">{row['內容']}</div>
